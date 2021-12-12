@@ -8,6 +8,8 @@ import {DeveloperPanelTab} from "@/ig-template/developer-panel/DeveloperPanelTab
 import {FunctionField} from "@/ig-template/developer-panel/fields/FunctionField";
 import {DisplayField} from "@/ig-template/developer-panel/fields/DisplayField";
 import {ChoiceField} from "@/ig-template/developer-panel/fields/ChoiceField";
+import {IgtSaveEncoder} from "@/ig-template/tools/saving";
+import {DefaultSaveEncoder} from "@/ig-template/tools/saving/DefaultSaveEncoder";
 
 export abstract class IgtGame {
     protected _tickInterval: NodeJS.Timeout | null = null;
@@ -28,10 +30,11 @@ export abstract class IgtGame {
     /**
      * How often the game should be saved
      */
-    protected readonly SAVE_INTERVAL = 30;
-    protected _nextSave = this.SAVE_INTERVAL;
+    protected readonly SAVE_INTERVAL: number = 30;
+    protected _nextSave: number;
+    protected saveEncoder: IgtSaveEncoder;
 
-    protected gameSpeed = 1;
+    protected gameSpeed: number = 1;
     protected _lastUpdate: number = 0;
 
     /**
@@ -42,6 +45,8 @@ export abstract class IgtGame {
 
     protected constructor() {
         this.state = GameState.Launching;
+        this._nextSave = this.SAVE_INTERVAL;
+        this.saveEncoder = new DefaultSaveEncoder();
     }
 
     public getDeveloperPanel(): DeveloperPanel {
@@ -151,6 +156,7 @@ export abstract class IgtGame {
             feature.start();
         }
 
+        this._nextSave = this.SAVE_INTERVAL;
         this._lastUpdate = new Date().getTime() / 1000;
         this._tickInterval = setInterval(() => this.update(), this.TICK_DURATION * 1000);
 
@@ -213,7 +219,7 @@ export abstract class IgtGame {
         for (const feature of this.featureList) {
             res[feature.saveKey] = feature.save()
         }
-        LocalStorage.store(this.SAVE_KEY, res)
+        LocalStorage.store(this.SAVE_KEY, res, this.saveEncoder)
     }
 
     /**
@@ -227,7 +233,7 @@ export abstract class IgtGame {
      * Recursively load all registered features
      */
     public load(): void {
-        const saveData = LocalStorage.get(this.SAVE_KEY)
+        const saveData = LocalStorage.get(this.SAVE_KEY, this.saveEncoder);
         if (saveData == null) {
             return;
         }
